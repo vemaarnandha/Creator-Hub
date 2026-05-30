@@ -6,11 +6,9 @@ import { authMiddleware } from "../middleware/authMiddleware";
 
 const creator = new Hono();
 
-// Semua route creator butuh login
 creator.use("*", authMiddleware);
 
 // ===== GET semua creator =====
-// Fungsi: ambil seluruh data creator dari database
 creator.get("/", async (c) => {
   const allCreators = await db.select().from(creators);
   return c.json({
@@ -20,49 +18,43 @@ creator.get("/", async (c) => {
 });
 
 // ===== GET satu creator by ID =====
-// Fungsi: ambil detail satu creator berdasarkan id di URL
 creator.get("/:id", async (c) => {
   const id = Number(c.req.param("id"));
 
-  const creator = await db
+  const result = await db
     .select()
     .from(creators)
     .where(eq(creators.id, id));
 
-  if (creator.length === 0) {
+  if (result.length === 0) {
     return c.json({ message: "Creator tidak ditemukan!" }, 404);
   }
 
   return c.json({
     message: "Berhasil mengambil data creator",
-    data: creator[0],
+    data: result[0],
   });
 });
 
 // ===== POST tambah creator baru =====
-// Fungsi: terima data dari frontend, simpan ke database
 creator.post("/", async (c) => {
   const body = await c.req.json();
 
-  // Validasi field wajib
   if (!body.name) {
     return c.json({ message: "Nama wajib diisi!" }, 400);
   }
 
-  // Cek email sudah dipakai atau belum
-  const existing = await db
-    .select()
-    .from(creators)
-    .where(eq(creators.email, body.email));
-
-  if (existing.length > 0) {
-    return c.json({ message: "Email creator sudah terdaftar!" }, 409);
+  // Validasi platform jika ada
+  if (body.platform && !["instagram", "tiktok", "youtube", "twitter"].includes(body.platform)) {
+    return c.json({ message: "Platform tidak valid!" }, 400);
   }
 
   const newCreator = await db.insert(creators).values({
     name: body.name,
-    phone: body.phone ?? null,
+    photo: body.photo ?? null,
+    niche: body.niche,
     followers: body.followers ?? 0,
+    platform: body.platform,
     status: body.status ?? "active",
   }).returning();
 
@@ -73,12 +65,10 @@ creator.post("/", async (c) => {
 });
 
 // ===== PUT update creator =====
-// Fungsi: update data creator berdasarkan id
 creator.put("/:id", async (c) => {
   const id = Number(c.req.param("id"));
   const body = await c.req.json();
 
-  // Cek creator ada atau tidak
   const existing = await db
     .select()
     .from(creators)
@@ -92,13 +82,10 @@ creator.put("/:id", async (c) => {
     .update(creators)
     .set({
       name: body.name ?? existing[0].name,
-      email: body.email ?? existing[0].email,
-      phone: body.phone ?? existing[0].phone,
-      bio: body.bio ?? existing[0].bio,
-      instagram: body.instagram ?? existing[0].instagram,
-      tiktok: body.tiktok ?? existing[0].tiktok,
-      youtube: body.youtube ?? existing[0].youtube,
+      photo: body.photo ?? existing[0].photo,
+      niche: body.niche ?? existing[0].niche,
       followers: body.followers ?? existing[0].followers,
+      platform: body.platform ?? existing[0].platform,
       status: body.status ?? existing[0].status,
     })
     .where(eq(creators.id, id))
@@ -110,8 +97,7 @@ creator.put("/:id", async (c) => {
   });
 });
 
-// ===== DELETE hapus creator =====
-// Fungsi: hapus creator berdasarkan id
+// ===== DELETE creator =====
 creator.delete("/:id", async (c) => {
   const id = Number(c.req.param("id"));
 
