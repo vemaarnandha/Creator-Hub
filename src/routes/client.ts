@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { db } from "../db/index";
-import { clients, creators, creators } from "../db/schema";
+import { clients } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { authMiddleware } from "../middleware/authMiddleware";
 

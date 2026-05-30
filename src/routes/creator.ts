@@ -45,8 +45,8 @@ creator.post("/", async (c) => {
   const body = await c.req.json();
 
   // Validasi field wajib
-  if (!body.name || !body.email) {
-    return c.json({ message: "Nama dan email wajib diisi!" }, 400);
+  if (!body.name) {
+    return c.json({ message: "Nama wajib diisi!" }, 400);
   }
 
   // Cek email sudah dipakai atau belum
@@ -61,12 +61,7 @@ creator.post("/", async (c) => {
 
   const newCreator = await db.insert(creators).values({
     name: body.name,
-    email: body.email,
     phone: body.phone ?? null,
-    bio: body.bio ?? null,
-    instagram: body.instagram ?? null,
-    tiktok: body.tiktok ?? null,
-    youtube: body.youtube ?? null,
     followers: body.followers ?? 0,
     status: body.status ?? "active",
   }).returning();
