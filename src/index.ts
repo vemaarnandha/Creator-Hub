@@ -2,20 +2,16 @@ import { Hono } from "hono";
 import { logger } from "hono/logger";
 import { cors } from "hono/cors";
 import auth from "./routes/auth";
+import creator from "./routes/creator"; // tambah ini
 
 const app = new Hono();
 
 app.use("*", logger());
 app.use("*", cors({
-  origin: "http://localhost:5173", // URL React teman kamu
+  origin: "http://localhost:5173",
 }));
 
-// Route auth (tidak butuh token)
 app.route("/auth", auth);
-
-// Contoh route yang butuh token
-app.get("/dashboard", async (c) => {
-  return c.json({ message: "Selamat datang di dashboard!" });
-});
+app.route("/creators", creator); // tambah ini
 
 export default app;
