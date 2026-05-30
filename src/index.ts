@@ -3,6 +3,7 @@ import { logger } from "hono/logger";
 import { cors } from "hono/cors";
 import auth from "./routes/auth";
 import creator from "./routes/creator"; // tambah ini
+import client from "./routes/client"; //tambah ini
 
 const app = new Hono();
 
@@ -12,6 +13,7 @@ app.use("*", cors({
 }));
 
 app.route("/auth", auth);
-app.route("/creators", creator); // tambah ini
+app.route("/creators", creator);
+app.route("/clients", client); // tambah ini
 
 export default app;
