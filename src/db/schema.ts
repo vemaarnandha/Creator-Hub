@@ -14,15 +14,15 @@ export const users = sqliteTable("users", {
 //tabel creators
 export const creators = sqliteTable("creators", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  photo: text("photo"),
   name: text("name").notNull(),
-  email: text("email").notNull().unique(),
-  phone: text("phone"),
-  bio: text("bio"),
-  photoUrl: text("photo_url"),         // URL foto creator
-  instagram: text("instagram"),
-  tiktok: text("tiktok"),
-  youtube: text("youtube"),
+  niche: text("niche"),
   followers: integer("followers").default(0),
-  status: text("status").default("active"), // active / inactive
+  platform: text("platform", {
+    enum: ["instagram", "tiktok", "youtube", "twitter"],
+  }).notNull(),
+  status: text("status", {
+    enum: ["active", "inactive"],
+  }).default("active"),
   createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
