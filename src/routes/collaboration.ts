@@ -15,7 +15,15 @@ collaboration.use("*", authMiddleware);
 collaboration.get("/projects", async (c) => {
   const allProjects = await db
     .select({
-      ...projects,
+      id: projects.id,
+      clientId: projects.clientId,
+      title: projects.title,
+      description: projects.description,
+      startDate: projects.startDate,
+      endDate: projects.endDate,
+      budget: projects.budget,
+      status: projects.status,
+      createdAt: projects.createdAt,
       client: clients.name_brand,
     })
     .from(projects)

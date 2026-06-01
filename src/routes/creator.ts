@@ -74,22 +74,28 @@ creator.put("/:id", async (c) => {
     .from(creators)
     .where(eq(creators.id, id));
 
-  if (existing.length === 0) {
+  if (existing.length === 0 || !existing[0]) {
     return c.json({ message: "Creator tidak ditemukan!" }, 404);
   }
+
+  const { name: existingName, photo: existingPhoto, niche: existingNiche, followers: existingFollowers, platform: existingPlatform, status: existingStatus } = existing[0];
 
   const updated = await db
     .update(creators)
     .set({
-      name: body.name ?? existing[0].name,
-      photo: body.photo ?? existing[0].photo,
-      niche: body.niche ?? existing[0].niche,
-      followers: body.followers ?? existing[0].followers,
-      platform: body.platform ?? existing[0].platform,
-      status: body.status ?? existing[0].status,
+      name: body.name ?? existingName,
+      photo: body.photo ?? existingPhoto,
+      niche: body.niche ?? existingNiche,
+      followers: body.followers ?? existingFollowers,
+      platform: body.platform ?? existingPlatform,
+      status: body.status ?? existingStatus,
     })
     .where(eq(creators.id, id))
     .returning();
+
+  if (!updated[0]) {
+    return c.json({ message: "Gagal mengupdate creator!" }, 500);
+  }
 
   return c.json({
     message: "Creator berhasil diupdate!",

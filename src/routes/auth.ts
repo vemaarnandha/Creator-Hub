@@ -38,12 +38,18 @@ auth.post("/register", async (c) => {
     password: hashedPassword,
   }).returning();
 
+  if (!newUser[0]) {
+    return c.json({ message: "Gagal membuat user!" }, 500);
+  }
+
+  const { id, name, email } = newUser[0];
+
   return c.json({
     message: "Registrasi berhasil!",
     user: {
-      id: newUser[0].id,
-      name: newUser[0].name,
-      email: newUser[0].email,
+      id,
+      name,
+      email,
     },
   }, 201);
 });
@@ -63,7 +69,7 @@ auth.post("/login", async (c) => {
     .from(users)
     .where(eq(users.email, body.email));
 
-  if (user.length === 0) {
+  if (user.length === 0 || !user[0]) {
     return c.json({ message: "Email atau password salah!" }, 401);
   }
 
@@ -74,12 +80,14 @@ auth.post("/login", async (c) => {
     return c.json({ message: "Email atau password salah!" }, 401);
   }
 
+  const { id, email, role, name } = user[0];
+
   // Buat JWT token
   const token = await sign(
     {
-      id: user[0].id,
-      email: user[0].email,
-      role: user[0].role,
+      id,
+      email,
+      role,
       exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24, // expired 24 jam
     },
     JWT_SECRET
@@ -89,10 +97,10 @@ auth.post("/login", async (c) => {
     message: "Login berhasil!",
     token,
     user: {
-      id: user[0].id,
-      name: user[0].name,
-      email: user[0].email,
-      role: user[0].role,
+      id,
+      name,
+      email,
+      role,
     },
   });
 });

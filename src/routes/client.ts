@@ -85,22 +85,27 @@ client.put("/:id", async (c) => {
     .from(clients)
     .where(eq(clients.id, id));
 
-  if (existing.length === 0) {
+  if (existing.length === 0 || !existing[0]) {
     return c.json({ message: "Client tidak ditemukan!" }, 404);
   }
+
+  const { name_brand: existingName, industri: existingIndustri, email: existingEmail, phone: existingPhone, status: existingStatus } = existing[0];
 
   const updated = await db
     .update(clients)
     .set({
-      name_brand: body.name_brand ?? existing[0].name_brand,
-      industri: body.industri ?? existing[0].industri,
-      email: body.email ?? existing[0].email,
-      phone: body.phone ?? existing[0].phone,
-      industri: body.industri ?? existing[0].industri,
-      status: body.status ?? existing[0].status,
+      name_brand: body.name_brand ?? existingName,
+      industri: body.industri ?? existingIndustri,
+      email: body.email ?? existingEmail,
+      phone: body.phone ?? existingPhone,
+      status: body.status ?? existingStatus,
     })
     .where(eq(clients.id, id))
     .returning();
+
+  if (!updated[0]) {
+    return c.json({ message: "Gagal mengupdate client!" }, 500);
+  }
 
   return c.json({
     message: "Client berhasil diupdate!",
