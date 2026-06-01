@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { db } from "../db/index";
 import { projects, projectCreators, clients, creators } from "../db/schema";
-import { eq, and, exists } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { authMiddleware } from "../middleware/authMiddleware";
 
 const collaboration = new Hono();
@@ -58,7 +58,6 @@ if (body.startDate && !isValidDate(body.startDate)) {
 if (body.endDate && !isValidDate(body.endDate)) {
   return c.json({ message: "Format endDate harus YYYY-MM-DD!" }, 400);
 }
-if (body.title )
 
   return c.json({ 
     message: "Project berhasil dibuat", 
