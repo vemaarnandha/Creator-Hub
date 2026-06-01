@@ -12,8 +12,13 @@ export const authMiddleware = createMiddleware(async (c, next) => {
 
   const token = authHeader.split(" ")[1];
 
+  // Guard: pastikan token tidak undefined (diperlukan karena noUncheckedIndexedAccess: true)
+  if (!token) {
+    return c.json({ message: "Token tidak ditemukan!" }, 401);
+  }
+
   try {
-    const payload = await verify(token, JWT_SECRET);
+    const payload = await verify(token, JWT_SECRET, "HS256");
     c.set("user", payload); // simpan data user ke context
     await next();
   } catch {
