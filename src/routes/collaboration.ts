@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { db } from "../db/index";
 import { projects, projectCreators, clients, creators } from "../db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, exists } from "drizzle-orm";
 import { authMiddleware } from "../middleware/authMiddleware";
 
 const collaboration = new Hono();
@@ -45,6 +45,20 @@ collaboration.post("/projects", async (c) => {
     budget: body.budget,
     status: body.status || "planning",
   }).returning();
+
+  // Validasi format tanggal YYYY-MM-DD
+function isValidDate(dateStr: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(dateStr);
+}
+
+// Di route POST /projects
+if (body.startDate && !isValidDate(body.startDate)) {
+  return c.json({ message: "Format startDate harus YYYY-MM-DD!" }, 400);
+}
+if (body.endDate && !isValidDate(body.endDate)) {
+  return c.json({ message: "Format endDate harus YYYY-MM-DD!" }, 400);
+}
+if (body.title )
 
   return c.json({ 
     message: "Project berhasil dibuat", 
