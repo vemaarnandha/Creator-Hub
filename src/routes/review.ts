@@ -3,8 +3,9 @@ import { db } from "../db/index";
 import { ratings, creators, projects, clients } from "../db/schema";
 import { eq, avg, count } from "drizzle-orm";
 import { authMiddleware } from "../middleware/authMiddleware";
+import type { Variables } from "../types/hono-env";
 
-const review = new Hono();
+const review = new Hono<{ Variables: Variables }>();
 
 review.use("*", authMiddleware);
 
@@ -12,7 +13,12 @@ review.use("*", authMiddleware);
 review.get("/", async (c) => {
   const allRatings = await db
     .select({
-      ...ratings,
+      id: ratings.id,
+      creatorId: ratings.creatorId,
+      projectId: ratings.projectId,
+      clientId: ratings.clientId,
+      rating: ratings.rating,
+      createdAt: ratings.createdAt,
       creatorName: creators.name,
       projectTitle: projects.title,
       clientName: clients.name_brand,
@@ -34,7 +40,13 @@ review.get("/creator/:creatorId", async (c) => {
 
   const creatorRatings = await db
     .select({
-      ...ratings,
+      id: ratings.id,
+      creatorId: ratings.creatorId,
+      projectId: ratings.projectId,
+      clientId: ratings.clientId,
+      rating: ratings.rating,
+      reviewText: ratings.reviewText,
+      createdAt: ratings.createdAt,
       projectTitle: projects.title,
       clientName: clients.name_brand,
     })
@@ -49,8 +61,8 @@ review.get("/creator/:creatorId", async (c) => {
     .from(ratings)
     .where(eq(ratings.creatorId, creatorId));
 
-  const averageRating = avgRatingResult[0]?.average 
-    ? parseFloat(Number(avgRatingResult[0].average).toFixed(1)) 
+  const averageRating = avgRatingResult[0]?.average
+    ? parseFloat(Number(avgRatingResult[0].average).toFixed(1))
     : 0;
 
   return c.json({
@@ -59,7 +71,7 @@ review.get("/creator/:creatorId", async (c) => {
       ratings: creatorRatings,
       averageRating,
       totalRatings: creatorRatings.length,
-    }
+    },
   });
 });
 
@@ -68,25 +80,34 @@ review.post("/", async (c) => {
   const body = await c.req.json();
 
   if (!body.projectId || !body.creatorId || !body.rating) {
-    return c.json({ message: "Project ID, Creator ID, dan Rating (1-5) wajib diisi!" }, 400);
+    return c.json(
+      { message: "Project ID, Creator ID, dan Rating (1-5) wajib diisi!" },
+      400,
+    );
   }
 
   if (body.rating < 1 || body.rating > 5) {
     return c.json({ message: "Rating harus antara 1 sampai 5!" }, 400);
   }
 
-  const newRating = await db.insert(ratings).values({
-    projectId: body.projectId,
-    creatorId: body.creatorId,
-    clientId: body.clientId,
-    rating: body.rating,
-    reviewText: body.reviewText,
-  }).returning();
+  const newRating = await db
+    .insert(ratings)
+    .values({
+      projectId: body.projectId,
+      creatorId: body.creatorId,
+      clientId: body.clientId,
+      rating: body.rating,
+      reviewText: body.reviewText,
+    })
+    .returning();
 
-  return c.json({
-    message: "Rating berhasil ditambahkan!",
-    data: newRating[0],
-  }, 201);
+  return c.json(
+    {
+      message: "Rating berhasil ditambahkan!",
+      data: newRating[0],
+    },
+    201,
+  );
 });
 
 // GET Average Rating Creator (untuk dashboard/creator detail)
@@ -98,8 +119,8 @@ review.get("/average/:creatorId", async (c) => {
     .from(ratings)
     .where(eq(ratings.creatorId, creatorId));
 
-  const average = result[0]?.average 
-    ? parseFloat(Number(result[0].average).toFixed(1)) 
+  const average = result[0]?.average
+    ? parseFloat(Number(result[0].average).toFixed(1))
     : 0;
 
   return c.json({

@@ -1,11 +1,12 @@
 import { Hono } from "hono";
+import type { Variables } from "../types/hono-env";
 import { db } from "../db/index";
 import { users } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { authMiddleware } from "../middleware/authMiddleware";
 import bcrypt from "bcryptjs";
 
-const settings = new Hono();
+const settings = new Hono<{ Variables: Variables }>();
 
 settings.use("*", authMiddleware);
 
@@ -56,6 +57,10 @@ settings.put("/change-password", async (c) => {
   const { oldPassword, newPassword } = await c.req.json();
 
   const currentUser = await db.select().from(users).where(eq(users.id, user.id));
+
+  if (!currentUser[0]) {
+    return c.json({ message: "User tidak ditemukan!" }, 404);
+  }
 
   const isValid = await bcrypt.compare(oldPassword, currentUser[0].password);
   if (!isValid) {

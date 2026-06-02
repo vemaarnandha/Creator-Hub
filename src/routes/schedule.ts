@@ -3,8 +3,9 @@ import { db } from "../db/index";
 import { schedules, projects, creators } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 import { authMiddleware } from "../middleware/authMiddleware";
+import type { Variables } from "../types/hono-env";
 
-const schedule = new Hono();
+const schedule = new Hono<{ Variables: Variables }>();
 
 schedule.use("*", authMiddleware);
 
@@ -12,7 +13,15 @@ schedule.use("*", authMiddleware);
 schedule.get("/", async (c) => {
   const allSchedules = await db
     .select({
-      ...schedules,
+      id: schedules.id,
+      projectId: schedules.projectId,
+      creatorId: schedules.creatorId,
+      postingDate: schedules.postingDate,
+      platform: schedules.platform,
+      contentType: schedules.contentType,
+      caption: schedules.caption,
+      status: schedules.status,
+      createdAt: schedules.createdAt,
       projectTitle: projects.title,
       creatorName: creators.name,
     })
@@ -70,22 +79,39 @@ schedule.put("/:id", async (c) => {
   const id = Number(c.req.param("id"));
   const body = await c.req.json();
 
-  const existing = await db.select().from(schedules).where(eq(schedules.id, id));
-  if (existing.length === 0) {
+  const existing = await db
+    .select()
+    .from(schedules)
+    .where(eq(schedules.id, id));
+
+  if (existing.length === 0 || !existing[0]) {  // ✅ Add null check
     return c.json({ message: "Schedule tidak ditemukan!" }, 404);
   }
+
+  // ✅ Destructure values
+  const { 
+    postingDate: existingPostingDate, 
+    platform: existingPlatform, 
+    contentType: existingContentType, 
+    caption: existingCaption, 
+    status: existingStatus 
+  } = existing[0];
 
   const updated = await db
     .update(schedules)
     .set({
-      postingDate: body.postingDate ?? existing[0].postingDate,
-      platform: body.platform ?? existing[0].platform,
-      contentType: body.contentType ?? existing[0].contentType,
-      caption: body.caption ?? existing[0].caption,
-      status: body.status ?? existing[0].status,
+      postingDate: body.postingDate ?? existingPostingDate,
+      platform: body.platform ?? existingPlatform,
+      contentType: body.contentType ?? existingContentType,
+      caption: body.caption ?? existingCaption,
+      status: body.status ?? existingStatus,
     })
     .where(eq(schedules.id, id))
     .returning();
+
+  if (!updated[0]) {
+    return c.json({ message: "Gagal mengupdate schedule!" }, 500);
+  }
 
   return c.json({
     message: "Schedule berhasil diupdate!",

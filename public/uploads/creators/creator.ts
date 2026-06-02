@@ -1,8 +1,8 @@
 import { Hono } from "hono";
-import { db } from "../db/index";
-import { creators } from "../db/schema";
+import { db } from "../../../src/db/index";
+import { creators } from "../../../src/db/schema";
 import { eq } from "drizzle-orm";
-import { authMiddleware } from "../middleware/authMiddleware";
+import { authMiddleware } from "../../../src/middleware/authMiddleware";
 import { serveStatic } from "hono/bun"; // untuk serve file upload
 
 const creator = new Hono();
@@ -76,11 +76,13 @@ creator.put("/:id", async (c) => {
   const body = await c.req.parseBody();
 
   const existing = await db.select().from(creators).where(eq(creators.id, id));
-  if (existing.length === 0) {
+  if (existing.length === 0 || !existing[0]) {
     return c.json({ message: "Creator tidak ditemukan!" }, 404);
   }
 
-  let photoPath = existing[0].photo;
+  const { photo: existingPhoto, name: existingName, niche: existingNiche, followers: existingFollowers, platform: existingPlatform, status: existingStatus } = existing[0];
+
+  let photoPath = existingPhoto;
 
   // Jika ada foto baru
   if (body.photo && typeof body.photo === "object") {
@@ -95,12 +97,12 @@ creator.put("/:id", async (c) => {
   const updated = await db
     .update(creators)
     .set({
-      name: (body.name as string) ?? existing[0].name,
+      name: (body.name as string) ?? existingName,
       photo: photoPath,
-      niche: (body.niche as string) ?? existing[0].niche,
-      followers: Number(body.followers) ?? existing[0].followers,
-      platform: (body.platform as any) ?? existing[0].platform,
-      status: (body.status as any) ?? existing[0].status,
+      niche: (body.niche as string) ?? existingNiche,
+      followers: Number(body.followers) ?? existingFollowers,
+      platform: (body.platform as any) ?? existingPlatform,
+      status: (body.status as any) ?? existingStatus,
     })
     .where(eq(creators.id, id))
     .returning();

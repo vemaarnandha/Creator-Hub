@@ -1,9 +1,10 @@
 import { createMiddleware } from "hono/factory";
 import { verify } from "hono/jwt";
+import type { Variables } from "../types/hono-env";
 
 const JWT_SECRET = process.env.JWT_SECRET ?? "secret";
 
-export const authMiddleware = createMiddleware(async (c, next) => {
+export const authMiddleware = createMiddleware <{ Variables: Variables }>(async (c, next) => {
   const authHeader = c.req.header("Authorization");
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -19,7 +20,8 @@ export const authMiddleware = createMiddleware(async (c, next) => {
 
   try {
     const payload = await verify(token, JWT_SECRET, "HS256");
-    c.set("user", payload); // simpan data user ke context
+    const userData = payload as { id: number; email: string; role: string; name: string };
+    c.set("user", userData); // simpan data user ke context
     await next();
   } catch {
     return c.json({ message: "Token tidak valid atau sudah expired!" }, 401);
