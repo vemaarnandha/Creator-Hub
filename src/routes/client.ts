@@ -61,7 +61,7 @@ client.post("/", async (c) => {
 
   const newClient = await db.insert(clients).values({
     name_brand: body.name_brand,
-    industri: body.industri ?? "belum diisi",
+    industry: body.industry ?? "belum diisi",
     email: body.email ,
     phone: body.phone ?? "belum diisi",
     status: body.status ?? "active",
@@ -89,13 +89,13 @@ client.put("/:id", async (c) => {
     return c.json({ message: "Client tidak ditemukan!" }, 404);
   }
 
-  const { name_brand: existingName, industri: existingIndustri, email: existingEmail, phone: existingPhone, status: existingStatus } = existing[0];
+  const { name_brand: existingName, industry: existingIndustri, email: existingEmail, phone: existingPhone, status: existingStatus } = existing[0];
 
   const updated = await db
     .update(clients)
     .set({
       name_brand: body.name_brand ?? existingName,
-      industri: body.industri ?? existingIndustri,
+      industry: body.industry ?? existingIndustri,
       email: body.email ?? existingEmail,
       phone: body.phone ?? existingPhone,
       status: body.status ?? existingStatus,
