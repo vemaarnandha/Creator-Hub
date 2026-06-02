@@ -66,3 +66,62 @@ export const projectCreators = sqliteTable("project_creators", {
   assignedAt: text("assigned_at").default(sql`CURRENT_TIMESTAMP`),
   // Bisa tambah kolom role/fee dll nanti
 });
+
+// ==================== SCHEDULE ====================
+
+export const schedules = sqliteTable("schedules", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  projectId: integer("project_id").references(() => projects.id, { onDelete: "cascade" }),
+  creatorId: integer("creator_id").references(() => creators.id, { onDelete: "cascade" }),
+  postingDate: text("posting_date").notNull(),     // Format: YYYY-MM-DD
+  platform: text("platform", {
+    enum: ["instagram", "tiktok", "youtube", "twitter"],
+  }).notNull(),
+  contentType: text("content_type"),               // Reel, Story, Video, Photo, dll
+  caption: text("caption"),
+  status: text("status", {
+    enum: ["scheduled", "posted", "cancelled"],
+  }).default("scheduled"),
+  createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+// ==================== INVOICE ====================
+
+export const invoices = sqliteTable("invoices", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  projectId: integer("project_id").references(() => projects.id, { onDelete: "cascade" }),
+  clientId: integer("client_id").references(() => clients.id),
+  invoiceNumber: text("invoice_number").notNull().unique(),
+  amount: integer("amount").notNull(),           // dalam Rupiah
+  description: text("description"),
+  issueDate: text("issue_date").notNull(),       // YYYY-MM-DD
+  dueDate: text("due_date"),
+  status: text("status", {
+    enum: ["pending", "paid", "overdue", "cancelled"],
+  }).default("pending"),
+  createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+// ==================== REVIEW & RATING ====================
+
+export const ratings = sqliteTable("ratings", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  projectId: integer("project_id").references(() => projects.id, { onDelete: "cascade" }),
+  creatorId: integer("creator_id").references(() => creators.id, { onDelete: "cascade" }),
+  clientId: integer("client_id").references(() => clients.id),
+  rating: integer("rating").notNull(),           // 1 sampai 5
+  reviewText: text("review_text"),
+  createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+// ==================== NOTIFICATION ====================
+
+export const notifications = sqliteTable("notifications", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").references(() => users.id),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  type: text("type", { enum: ["deadline", "campaign", "system"] }).default("system"),
+  isRead: integer("is_read", { mode: "boolean" }).default(false),
+  createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
