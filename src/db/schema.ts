@@ -32,7 +32,7 @@ export const creators = sqliteTable("creators", {
 export const clients = sqliteTable("clients", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name_brand: text("name_brand").notNull(),
-  industri: text("industri").notNull(),
+  industry: text("industry").notNull(),
   email: text("email").notNull().unique(),
   phone: text("phone").notNull(),
   status: text("status", {

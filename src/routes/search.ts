@@ -35,7 +35,7 @@ search.get("/", async (c) => {
     .where(
       or(
         like(clients.name_brand, `%${query}%`),
-        like(clients.industri, `%${query}%`)
+        like(clients.industry, `%${query}%`)
       )
     )
     .limit(10);
