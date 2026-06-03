@@ -35,33 +35,36 @@ collaboration.get("/projects", async (c) => {
 // POST buat project baru
 collaboration.post("/projects", async (c) => {
   const body = await c.req.json();
-  
-  const newProject = await db.insert(projects).values({
-    clientId: body.clientId,
-    title: body.title,
-    description: body.description,
-    startDate: body.startDate,
-    endDate: body.endDate,
-    budget: body.budget,
-    status: body.status || "planning",
-  }).returning();
 
   // Validasi format tanggal YYYY-MM-DD
-function isValidDate(dateStr: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(dateStr);
-}
+  function isValidDate(dateStr: string): boolean {
+    return /^\d{4}-\d{2}-\d{2}$/.test(dateStr);
+  }
 
-// Di route POST /projects
-if (body.startDate && !isValidDate(body.startDate)) {
-  return c.json({ message: "Format startDate harus YYYY-MM-DD!" }, 400);
-}
-if (body.endDate && !isValidDate(body.endDate)) {
-  return c.json({ message: "Format endDate harus YYYY-MM-DD!" }, 400);
-}
+  const newProject = await db
+    .insert(projects)
+    .values({
+      clientId: body.clientId,
+      title: body.title,
+      description: body.description,
+      startDate: body.startDate,
+      endDate: body.endDate,
+      budget: body.budget,
+      status: body.status || "planning",
+    })
+    .returning();
 
-  return c.json({ 
-    message: "Project berhasil dibuat", 
-    data: newProject[0] 
+  // Di route POST /projects
+  if (body.startDate && !isValidDate(body.startDate)) {
+    return c.json({ message: "Format startDate harus YYYY-MM-DD!" }, 400);
+  }
+  if (body.endDate && !isValidDate(body.endDate)) {
+    return c.json({ message: "Format endDate harus YYYY-MM-DD!" }, 400);
+  }
+
+  return c.json({
+    message: "Project berhasil dibuat",
+    data: newProject[0],
   });
 });
 
@@ -75,16 +78,16 @@ collaboration.post("/assign", async (c) => {
     return c.json({ message: "projectId dan creatorIds (array) wajib" }, 400);
   }
 
-  const assignments = creatorIds.map(creatorId => ({
+  const assignments = creatorIds.map((creatorId) => ({
     projectId,
     creatorId,
   }));
 
   await db.insert(projectCreators).values(assignments);
 
-  return c.json({ 
+  return c.json({
     message: "Creator berhasil di-assign ke project",
-    data: assignments 
+    data: assignments,
   });
 });
 
