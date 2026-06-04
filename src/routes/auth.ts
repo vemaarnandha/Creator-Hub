@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { sign } from "hono/jwt";
+import { sign, verify } from "hono/jwt";
 import bcrypt from "bcryptjs";
 import { db } from "../db/index";
 import { users } from "../db/schema";
@@ -102,6 +102,57 @@ auth.post("/login", async (c) => {
       email,
       role,
     },
+  });
+});
+
+// ===== GET CURRENT USER =====
+auth.get("/me", async (c) => {
+  const authHeader = c.req.header("Authorization");
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return c.json({ message: "Token tidak ditemukan!" }, 401);
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  if (!token) {
+    return c.json({ message: "Token tidak ditemukan!" }, 401);
+  }
+
+  try {
+    const payload = await verify(token, JWT_SECRET, "HS256");
+    const userData = payload as { id: number; email: string; role: string };
+
+    const user = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        profile_photo: users.profile_photo,
+        role: users.role,
+      })
+      .from(users)
+      .where(eq(users.id, userData.id));
+
+    if (user.length === 0) {
+      return c.json({ message: "User tidak ditemukan!" }, 404);
+    }
+
+    return c.json({
+      message: "Success",
+      user: user[0],
+    });
+  } catch {
+    return c.json({ message: "Token tidak valid atau sudah expired!" }, 401);
+  }
+});
+
+// ===== LOGOUT =====
+auth.post("/logout", async (c) => {
+  // Logout di frontend adalah dengan menghapus token dari localStorage
+  // Backend hanya memberikan response sukses
+  return c.json({
+    message: "Logout berhasil!",
   });
 });
 

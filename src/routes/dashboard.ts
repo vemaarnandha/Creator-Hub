@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { db } from "../db/index";
 import { projects, creators, clients, projectCreators } from "../db/schema";
-import { eq, count, sql } from "drizzle-orm";
+import { eq, count, sql, desc } from "drizzle-orm";
 import { authMiddleware } from "../middleware/authMiddleware";
 
 const dashboard = new Hono();
@@ -54,6 +54,34 @@ dashboard.get("/", async (c) => {
   } catch (error) {
     console.error(error);
     return c.json({ message: "Gagal mengambil data dashboard" }, 500);
+  }
+});
+
+// GET /dashboard/recent - Recent projects dengan client info
+dashboard.get("/recent", async (c) => {
+  try {
+    const recentProjects = await db
+      .select({
+        id: projects.id,
+        projectName: projects.title,
+        title: projects.title,
+        clientName: clients.name_brand,
+        name_brand: clients.name_brand,
+        status: projects.status,
+        createdAt: projects.createdAt,
+      })
+      .from(projects)
+      .leftJoin(clients, eq(projects.clientId, clients.id))
+      .orderBy(desc(projects.createdAt))
+      .limit(10);
+
+    return c.json({
+      message: "Recent projects fetched",
+      data: recentProjects,
+    });
+  } catch (error) {
+    console.error(error);
+    return c.json({ message: "Gagal mengambil data project terbaru" }, 500);
   }
 });
 

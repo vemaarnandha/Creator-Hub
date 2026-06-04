@@ -40,7 +40,9 @@ settings.put("/profile", async (c) => {
     .update(users)
     .set({
       name: body.name ?? undefined,
-      profile_photo: body.profile_photo ?? undefined,
+      email: body.email ?? undefined,
+      profile_photo: body.photo ?? body.profile_photo ?? undefined,
+      role: body.role ?? undefined,
     })
     .where(eq(users.id, user.id))
     .returning();

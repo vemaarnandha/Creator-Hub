@@ -55,4 +55,35 @@ notification.put("/:id/read", async (c) => {
   return c.json({ message: "Notifikasi ditandai sudah dibaca", data: updated[0] });
 });
 
+// PUT mark as unread
+notification.put("/:id/unread", async (c) => {
+  const id = Number(c.req.param("id"));
+
+  const updated = await db
+    .update(notifications)
+    .set({ isRead: false })
+    .where(eq(notifications.id, id))
+    .returning();
+
+  return c.json({ message: "Notifikasi ditandai belum dibaca", data: updated[0] });
+});
+
+// DELETE notification
+notification.delete("/:id", async (c) => {
+  const id = Number(c.req.param("id"));
+
+  const existing = await db
+    .select()
+    .from(notifications)
+    .where(eq(notifications.id, id));
+
+  if (existing.length === 0) {
+    return c.json({ message: "Notifikasi tidak ditemukan!" }, 404);
+  }
+
+  await db.delete(notifications).where(eq(notifications.id, id));
+
+  return c.json({ message: "Notifikasi berhasil dihapus!" });
+});
+
 export default notification;

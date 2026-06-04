@@ -18,6 +18,7 @@ review.get("/", async (c) => {
       projectId: ratings.projectId,
       clientId: ratings.clientId,
       rating: ratings.rating,
+      reviewText: ratings.reviewText,
       createdAt: ratings.createdAt,
       creatorName: creators.name,
       projectTitle: projects.title,
@@ -79,9 +80,9 @@ review.get("/creator/:creatorId", async (c) => {
 review.post("/", async (c) => {
   const body = await c.req.json();
 
-  if (!body.projectId || !body.creatorId || !body.rating) {
+  if (!body.creatorId || !body.rating) {
     return c.json(
-      { message: "Project ID, Creator ID, dan Rating (1-5) wajib diisi!" },
+      { message: "Creator ID dan Rating (1-5) wajib diisi!" },
       400,
     );
   }
@@ -93,9 +94,9 @@ review.post("/", async (c) => {
   const newRating = await db
     .insert(ratings)
     .values({
-      projectId: body.projectId,
+      projectId: body.projectId || null,
       creatorId: body.creatorId,
-      clientId: body.clientId,
+      clientId: body.clientId || null,
       rating: body.rating,
       reviewText: body.reviewText,
     })
@@ -127,6 +128,57 @@ review.get("/average/:creatorId", async (c) => {
     message: "Success",
     averageRating: average,
   });
+});
+
+// PUT Update Rating
+review.put("/:id", async (c) => {
+  const id = Number(c.req.param("id"));
+  const body = await c.req.json();
+
+  const existing = await db
+    .select()
+    .from(ratings)
+    .where(eq(ratings.id, id));
+
+  if (existing.length === 0 || !existing[0]) {
+    return c.json({ message: "Rating tidak ditemukan!" }, 404);
+  }
+
+  if (body.rating && (body.rating < 1 || body.rating > 5)) {
+    return c.json({ message: "Rating harus antara 1 sampai 5!" }, 400);
+  }
+
+  const updated = await db
+    .update(ratings)
+    .set({
+      rating: body.rating ?? existing[0].rating,
+      reviewText: body.reviewText ?? existing[0].reviewText,
+    })
+    .where(eq(ratings.id, id))
+    .returning();
+
+  return c.json({
+    message: "Rating berhasil diupdate!",
+    data: updated[0],
+  });
+});
+
+// DELETE Rating
+review.delete("/:id", async (c) => {
+  const id = Number(c.req.param("id"));
+
+  const existing = await db
+    .select()
+    .from(ratings)
+    .where(eq(ratings.id, id));
+
+  if (existing.length === 0) {
+    return c.json({ message: "Rating tidak ditemukan!" }, 404);
+  }
+
+  await db.delete(ratings).where(eq(ratings.id, id));
+
+  return c.json({ message: "Rating berhasil dihapus!" });
 });
 
 export default review;
