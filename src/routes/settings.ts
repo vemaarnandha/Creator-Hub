@@ -31,21 +31,29 @@ settings.get("/profile", async (c) => {
   });
 });
 
-// PUT Update Profile
+// PUT Update Profile (DEF-03 FIXED)
 settings.put("/profile", async (c) => {
   const user = c.get("user");
   const body = await c.req.json();
 
+  // === DEF-03 FIX: Cegah privilege escalation ===
+  // Hapus field role dari update agar user tidak bisa ubah role sendiri
+  const { role, ...safeBody } = body;
+
   const updated = await db
     .update(users)
     .set({
-      name: body.name ?? undefined,
-      email: body.email ?? undefined,
-      profile_photo: body.photo ?? body.profile_photo ?? undefined,
-      role: body.role ?? undefined,
+      name: safeBody.name ?? undefined,
+      email: safeBody.email ?? undefined,
+      profile_photo: safeBody.photo ?? safeBody.profile_photo ?? undefined,
+      // role TIDAK boleh diubah melalui endpoint ini
     })
     .where(eq(users.id, user.id))
     .returning();
+
+  if (!updated[0]) {
+    return c.json({ message: "Gagal mengupdate profile" }, 400);
+  }
 
   return c.json({
     message: "Profile berhasil diupdate",
@@ -58,7 +66,14 @@ settings.put("/change-password", async (c) => {
   const user = c.get("user");
   const { oldPassword, newPassword } = await c.req.json();
 
-  const currentUser = await db.select().from(users).where(eq(users.id, user.id));
+  if (!oldPassword || !newPassword) {
+    return c.json({ message: "Password lama dan baru wajib diisi!" }, 400);
+  }
+
+  const currentUser = await db
+    .select()
+    .from(users)
+    .where(eq(users.id, user.id));
 
   if (!currentUser[0]) {
     return c.json({ message: "User tidak ditemukan!" }, 404);
