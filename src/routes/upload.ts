@@ -5,75 +5,74 @@ import { authMiddleware } from "../middleware/authMiddleware";
 import { processUpload, deleteFile } from "../utils/fileHandler";
 import { eq } from "drizzle-orm";
 
-const upload = new Hono();
+// ✅ FIX 1: Definisikan tipe Variables agar c.get("user") dikenali
+type Variables = {
+  user: {
+    id: number;
+    role: string;
+    email: string;
+    name: string;
+  };
+};
 
-// Middleware: Auth check
+const upload = new Hono<{ Variables: Variables }>();
+
 upload.use("*", authMiddleware);
 
-/**
- * POST /upload
- * Upload foto dengan validasi dan simpan ke database
- * 
- * Body: FormData
- * - file: File (required)
- * - relatedType: 'profile' | 'creator' | 'project' | 'portfolio' (optional)
- * - relatedId: number (optional)
- */
+// POST /upload
 upload.post("/", async (c) => {
   try {
-    // Get user dari auth middleware
     const user = c.get("user");
     if (!user) {
       return c.json({ error: "User tidak ditemukan dalam context" }, 401);
     }
     const userId = user.id;
 
-    // Parse FormData
     const formData = await c.req.formData();
     const file = formData.get("file") as File;
     const relatedType = (formData.get("relatedType") as string) || null;
     const relatedId = formData.get("relatedId") ? Number(formData.get("relatedId")) : null;
 
-    // Validasi file ada
     if (!file) {
       return c.json({ error: "File tidak ditemukan" }, 400);
     }
 
-    // Convert File to Buffer
     const buffer = await file.arrayBuffer();
     const bufferData = Buffer.from(buffer);
 
-    // Process upload
-    const uploadResult = await processUpload(
-      bufferData,
-      file.type,
-      file.name
-    );
+    const uploadResult = await processUpload(bufferData, file.type, file.name);
 
     if (!uploadResult.success) {
       return c.json({ error: uploadResult.error }, 400);
     }
 
-    // Simpan metadata ke database
+    // ✅ FIX 2: Guard setelah success check, TS sudah tahu tidak undefined
+    // Tapi kalau masih error, gunakan non-null assertion atau optional chaining:
     const fileRecord = await db.insert(fileUploads).values({
-      userId: userId,
-      fileName: uploadResult.fileName!,
-      fileSize: uploadResult.fileSize!,
-      mimeType: uploadResult.mimeType!,
-      filePath: uploadResult.filePath!,
+      userId,
+      fileName: uploadResult.fileName ?? "",
+      fileSize: uploadResult.fileSize ?? 0,
+      mimeType: uploadResult.mimeType ?? "",
+      filePath: uploadResult.filePath ?? "",
       relatedType: relatedType as "profile" | "creator" | "project" | "portfolio" | null,
-      relatedId: relatedId,
+      relatedId,
     }).returning();
+
+    // ✅ FIX 3: Guard fileRecord[0]
+    const record = fileRecord[0];
+    if (!record) {
+      return c.json({ error: "Gagal menyimpan data file" }, 500);
+    }
 
     return c.json({
       message: "Upload berhasil",
       data: {
-        id: fileRecord[0].id,
-        fileName: fileRecord[0].fileName,
-        filePath: fileRecord[0].filePath,
-        fileSize: fileRecord[0].fileSize,
-        mimeType: fileRecord[0].mimeType,
-        uploadedAt: fileRecord[0].uploadedAt,
+        id: record.id,
+        fileName: record.fileName,
+        filePath: record.filePath,
+        fileSize: record.fileSize,
+        mimeType: record.mimeType,
+        uploadedAt: record.uploadedAt,
       },
     }, 201);
   } catch (error) {
@@ -82,19 +81,15 @@ upload.post("/", async (c) => {
   }
 });
 
-/**
- * GET /upload/user/:userId
- * Dapatkan semua file yang di-upload oleh user tertentu
- */
+// GET /upload/user/:userId
 upload.get("/user/:userId", async (c) => {
   try {
-    const user = c.get("user");
+    const user = c.get("user"); // ✅ sudah dikenali
     if (!user) {
       return c.json({ error: "User tidak ditemukan dalam context" }, 401);
     }
     const requestedUserId = Number(c.req.param("userId"));
 
-    // Security: User hanya bisa melihat file mereka sendiri, kecuali admin
     if (user.id !== requestedUserId && user.role !== "admin") {
       return c.json({ error: "Anda tidak berhak mengakses file user lain" }, 403);
     }
@@ -104,20 +99,14 @@ upload.get("/user/:userId", async (c) => {
       .from(fileUploads)
       .where(eq(fileUploads.userId, requestedUserId));
 
-    return c.json({
-      message: "Data file berhasil diambil",
-      data: files,
-    });
+    return c.json({ message: "Data file berhasil diambil", data: files });
   } catch (error) {
     console.error("Error fetching files:", error);
     return c.json({ error: "Terjadi kesalahan" }, 500);
   }
 });
 
-/**
- * GET /upload/:id
- * Dapatkan metadata file berdasarkan ID
- */
+// GET /upload/:id
 upload.get("/:id", async (c) => {
   try {
     const id = Number(c.req.param("id"));
@@ -131,47 +120,38 @@ upload.get("/:id", async (c) => {
       return c.json({ error: "File tidak ditemukan" }, 404);
     }
 
-    return c.json({
-      message: "Data file berhasil diambil",
-      data: file[0],
-    });
+    return c.json({ message: "Data file berhasil diambil", data: file[0] });
   } catch (error) {
     console.error("Error fetching file:", error);
     return c.json({ error: "Terjadi kesalahan" }, 500);
   }
 });
 
-/**
- * DELETE /upload/:id
- * Hapus file dan metadata dari database
- */
+// DELETE /upload/:id
 upload.delete("/:id", async (c) => {
   try {
     const id = Number(c.req.param("id"));
-    const user = c.get("user");
+    const user = c.get("user"); // ✅ sudah dikenali
     if (!user) {
       return c.json({ error: "User tidak ditemukan dalam context" }, 401);
     }
-    const userId = user.id;
 
-    // Cek file ada dan milik user
-    const file = await db
+    const files = await db
       .select()
       .from(fileUploads)
       .where(eq(fileUploads.id, id));
 
-    if (file.length === 0) {
+    // ✅ FIX 4: Guard file[0]
+    const file = files[0];
+    if (!file) {
       return c.json({ error: "File tidak ditemukan" }, 404);
     }
 
-    if (file[0].userId !== userId) {
+    if (file.userId !== user.id) {
       return c.json({ error: "Anda tidak berhak menghapus file ini" }, 403);
     }
 
-    // Hapus file dari disk
-    await deleteFile(file[0].fileName);
-
-    // Hapus dari database
+    await deleteFile(file.fileName);
     await db.delete(fileUploads).where(eq(fileUploads.id, id));
 
     return c.json({ message: "File berhasil dihapus" });
