@@ -61,37 +61,39 @@ settings.put("/profile", async (c) => {
   });
 });
 
-// PUT Ganti Password
-settings.put("/change-password", async (c) => {
+// PUT Update Profile (DEF-03 FIXED + Error 500 Solved)
+settings.put("/profile", async (c) => {
   const user = c.get("user");
-  const { oldPassword, newPassword } = await c.req.json();
+  const body = await c.req.json();
 
-  if (!oldPassword || !newPassword) {
-    return c.json({ message: "Password lama dan baru wajib diisi!" }, 400);
+  // === DEF-03 FIX: Cegah privilege escalation ===
+  const updateData: any = {};
+
+  if (body.name !== undefined) updateData.name = body.name;
+  if (body.email !== undefined) updateData.email = body.email;
+  if (body.photo !== undefined || body.profile_photo !== undefined) {
+    updateData.profile_photo = body.photo ?? body.profile_photo;
+  }
+  // role sengaja TIDAK diikutkan
+
+  if (Object.keys(updateData).length === 0) {
+    return c.json({ message: "Tidak ada data yang diupdate" }, 400);
   }
 
-  const currentUser = await db
-    .select()
-    .from(users)
-    .where(eq(users.id, user.id));
-
-  if (!currentUser[0]) {
-    return c.json({ message: "User tidak ditemukan!" }, 404);
-  }
-
-  const isValid = await bcrypt.compare(oldPassword, currentUser[0].password);
-  if (!isValid) {
-    return c.json({ message: "Password lama salah!" }, 400);
-  }
-
-  const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-  await db
+  const updated = await db
     .update(users)
-    .set({ password: hashedPassword })
-    .where(eq(users.id, user.id));
+    .set(updateData)
+    .where(eq(users.id, user.id))
+    .returning();
 
-  return c.json({ message: "Password berhasil diubah" });
+  if (!updated || updated.length === 0) {
+    return c.json({ message: "Gagal mengupdate profile" }, 400);
+  }
+
+  return c.json({
+    message: "Profile berhasil diupdate",
+    data: updated[0],
+  });
 });
 
 export default settings;
