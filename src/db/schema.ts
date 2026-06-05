@@ -125,3 +125,19 @@ export const notifications = sqliteTable("notifications", {
   isRead: integer("is_read", { mode: "boolean" }).default(false),
   createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
+
+// ==================== FILE UPLOADS / MEDIA ====================
+
+export const fileUploads = sqliteTable("file_uploads", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").references(() => users.id),
+  fileName: text("file_name").notNull(),                    // Nama file asli
+  fileSize: integer("file_size").notNull(),                 // Ukuran dalam bytes
+  mimeType: text("mime_type").notNull(),                    // Tipe file (image/jpeg, dll)
+  filePath: text("file_path").notNull().unique(),           // Path penyimpanan (/uploads/xxx.jpg)
+  relatedType: text("related_type", {                       // Tipe entitas yang menggunakan file
+    enum: ["profile", "creator", "project", "portfolio"],
+  }),
+  relatedId: integer("related_id"),                         // ID dari entitas tersebut
+  uploadedAt: text("uploaded_at").default(sql`CURRENT_TIMESTAMP`),
+});
