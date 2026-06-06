@@ -119,6 +119,9 @@ upload.get("/:id", async (c) => {
 
     // ✅ FIX 2: Authorization check - user hanya bisa akses file mereka atau admin
     const fileData = file[0];
+    if (!fileData) {
+      return c.json({ error: "File tidak ditemukan" }, 404);
+    }
     if (fileData.userId !== user.id && user.role !== "admin") {
       return c.json({ error: "Anda tidak berhak mengakses file ini" }, 403);
     }

@@ -32,11 +32,14 @@ auth.post("/register", async (c) => {
   const hashedPassword = await bcrypt.hash(body.password, 10);
 
   // Simpan ke database
-  const newUser = await db.insert(users).values({
-    name: body.name,
-    email: body.email,
-    password: hashedPassword,
-  }).returning();
+  const newUser = await db
+    .insert(users)
+    .values({
+      name: body.name,
+      email: body.email,
+      password: hashedPassword,
+    })
+    .returning();
 
   if (!newUser[0]) {
     return c.json({ message: "Gagal membuat user!" }, 500);
@@ -44,14 +47,17 @@ auth.post("/register", async (c) => {
 
   const { id, name, email } = newUser[0];
 
-  return c.json({
-    message: "Registrasi berhasil!",
-    user: {
-      id,
-      name,
-      email,
+  return c.json(
+    {
+      message: "Registrasi berhasil!",
+      user: {
+        id,
+        name,
+        email,
+      },
     },
-  }, 201);
+    201,
+  );
 });
 
 // ===== LOGIN =====
@@ -64,10 +70,7 @@ auth.post("/login", async (c) => {
   }
 
   // Cari user berdasarkan email
-  const user = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, body.email));
+  const user = await db.select().from(users).where(eq(users.email, body.email));
 
   if (user.length === 0 || !user[0]) {
     return c.json({ message: "Email atau password salah!" }, 401);
@@ -90,7 +93,7 @@ auth.post("/login", async (c) => {
       role,
       exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24, // expired 24 jam
     },
-    JWT_SECRET
+    JWT_SECRET,
   );
 
   return c.json({

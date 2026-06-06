@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { db } from "../db/index";
-import { invoices, projects, clients } from "../db/schema";
+import { invoices, projects, clients, invoiceItems, creators } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { authMiddleware } from "../middleware/authMiddleware";
 
@@ -50,6 +50,28 @@ invoice.get("/project/:projectId", async (c) => {
     message: "Success",
     data: projectInvoices,
   });
+});
+
+// ✅ BARU: GET rincian invoice (breakdown per creator)
+invoice.get("/:id/items", async (c) => {
+  const id = Number(c.req.param("id"));
+
+  const items = await db
+    .select({
+      id: invoiceItems.id,
+      invoiceId: invoiceItems.invoiceId,
+      creatorId: invoiceItems.creatorId,
+      creatorName: invoiceItems.creatorName,
+      role: invoiceItems.role,
+      fee: invoiceItems.fee,
+      description: invoiceItems.description,
+      creatorPhoto: creators.photo,
+    })
+    .from(invoiceItems)
+    .leftJoin(creators, eq(invoiceItems.creatorId, creators.id))
+    .where(eq(invoiceItems.invoiceId, id));
+
+  return c.json({ message: "Success", data: items });
 });
 
 // POST Generate Invoice Baru

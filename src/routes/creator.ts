@@ -21,10 +21,7 @@ creator.get("/", async (c) => {
 creator.get("/:id", async (c) => {
   const id = Number(c.req.param("id"));
 
-  const result = await db
-    .select()
-    .from(creators)
-    .where(eq(creators.id, id));
+  const result = await db.select().from(creators).where(eq(creators.id, id));
 
   if (result.length === 0) {
     return c.json({ message: "Creator tidak ditemukan!" }, 404);
@@ -45,23 +42,36 @@ creator.post("/", async (c) => {
   }
 
   // Validasi platform jika ada
-  if (body.platform && !["instagram", "tiktok", "youtube", "twitter"].includes(body.platform)) {
+  if (
+    body.platform &&
+    !["instagram", "tiktok", "youtube", "twitter"].includes(body.platform)
+  ) {
     return c.json({ message: "Platform tidak valid!" }, 400);
   }
+  //Route 1 — Update Creator Route: Support Rate Fields
 
-  const newCreator = await db.insert(creators).values({
-    name: body.name,
-    photo: body.photo ?? null,
-    niche: body.niche,
-    followers: body.followers ?? 0,
-    platform: body.platform,
-    status: body.status ?? "active",
-  }).returning();
+  const newCreator = await db
+    .insert(creators)
+    .values({
+      name: body.name,
+      photo: body.photo ?? null,
+      niche: body.niche,
+      followers: body.followers ?? 0,
+      platform: body.platform,
+      status: body.status ?? "active",
+      // ✅ TAMBAHKAN:
+      rate: body.rate ?? 0,
+      rateType: body.rateType ?? "per_project",
+    })
+    .returning();
 
-  return c.json({
-    message: "Creator berhasil ditambahkan!",
-    data: newCreator[0],
-  }, 201);
+  return c.json(
+    {
+      message: "Creator berhasil ditambahkan!",
+      data: newCreator[0],
+    },
+    201,
+  );
 });
 
 // ===== PUT update creator =====
@@ -69,26 +79,35 @@ creator.put("/:id", async (c) => {
   const id = Number(c.req.param("id"));
   const body = await c.req.json();
 
-  const existing = await db
-    .select()
-    .from(creators)
-    .where(eq(creators.id, id));
+  const existing = await db.select().from(creators).where(eq(creators.id, id));
 
   if (existing.length === 0 || !existing[0]) {
     return c.json({ message: "Creator tidak ditemukan!" }, 404);
   }
 
-  const { name: existingName, photo: existingPhoto, niche: existingNiche, followers: existingFollowers, platform: existingPlatform, status: existingStatus } = existing[0];
+  const {
+    name: existingName,
+    photo: existingPhoto,
+    niche: existingNiche,
+    followers: existingFollowers,
+    platform: existingPlatform,
+    status: existingStatus,
+    rate: existingRate,
+    rateType: existingRateType,
+  } = existing[0];
 
   const updated = await db
     .update(creators)
     .set({
-      name: body.name ?? existingName,
-      photo: body.photo ?? existingPhoto,
-      niche: body.niche ?? existingNiche,
-      followers: body.followers ?? existingFollowers,
-      platform: body.platform ?? existingPlatform,
-      status: body.status ?? existingStatus,
+      name: body.name ?? existing[0].name,
+      photo: body.photo ?? existing[0].photo,
+      niche: body.niche ?? existing[0].niche,
+      followers: body.followers ?? existing[0].followers,
+      platform: body.platform ?? existing[0].platform,
+      status: body.status ?? existing[0].status,
+      // ✅ TAMBAHKAN:
+      rate: body.rate ?? existing[0].rate,
+      rateType: body.rateType ?? existing[0].rateType,
     })
     .where(eq(creators.id, id))
     .returning();
@@ -107,10 +126,7 @@ creator.put("/:id", async (c) => {
 creator.delete("/:id", async (c) => {
   const id = Number(c.req.param("id"));
 
-  const existing = await db
-    .select()
-    .from(creators)
-    .where(eq(creators.id, id));
+  const existing = await db.select().from(creators).where(eq(creators.id, id));
 
   if (existing.length === 0) {
     return c.json({ message: "Creator tidak ditemukan!" }, 404);

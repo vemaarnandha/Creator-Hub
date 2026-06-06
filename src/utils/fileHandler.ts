@@ -60,7 +60,7 @@ export const generateFileName = (originalName: string): string => {
   
   // ✅ FIX 3: Handle edge case file tanpa extension
   const parts = originalName.split(".");
-  const ext = parts.length > 1 ? parts[parts.length - 1].toLowerCase() : "jpg";
+  const ext = parts.length > 1 ? parts[parts.length - 1]!.toLowerCase() : "jpg";
   
   return `${timestamp}-${random}.${ext}`;
 };

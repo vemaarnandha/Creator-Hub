@@ -8,6 +8,13 @@
       "when": 1780624855221,
       "tag": "0000_marvelous_thunderball",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1780713970576,
+      "tag": "0001_heavy_kang",
+      "breakpoints": true
     }
   ]
 }

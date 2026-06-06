@@ -44,7 +44,7 @@ settings.put("/profile", async (c) => {
     } catch (parseError) {
       console.error("❌ FormData parse error:", parseError);
       console.log("🔍 Content-Type:", c.req.header("content-type"));
-      console.log("🔍 Body size:", c.req.raw.body?.length || "unknown");
+      console.log("🔍 Body stream available:", Boolean(c.req.raw.body));
       return c.json(
         {
           error:
@@ -165,6 +165,9 @@ settings.put("/profile", async (c) => {
 
     // FIX [RESPONSE_VALIDATION]: Log exact response untuk debug path issue
     const responseData = fetchedUser[0];
+    if (!responseData) {
+      return c.json({ message: "Gagal mengambil data profile terbaru" }, 400);
+    }
     console.log("🔍 RESPONSE PAYLOAD - profile_photo field:", responseData.profile_photo);
     console.log("🔍 RESPONSE PAYLOAD - all fields:", Object.keys(responseData));
     console.log("🔍 RESPONSE PAYLOAD - full object:", JSON.stringify(responseData, null, 2));
