@@ -4,17 +4,9 @@ import { fileUploads } from "../db/schema";
 import { authMiddleware } from "../middleware/authMiddleware";
 import { processUpload, deleteFile } from "../utils/fileHandler";
 import { eq } from "drizzle-orm";
+import type { Variables } from "../types/hono-env";
 
-// ✅ FIX 1: Definisikan tipe Variables agar c.get("user") dikenali
-type Variables = {
-  user: {
-    id: number;
-    role: string;
-    email: string;
-    name: string;
-  };
-};
-
+// ✅ Variables type sudah di-import dari hono-env.ts (type consistency)
 const upload = new Hono<{ Variables: Variables }>();
 
 upload.use("*", authMiddleware);
@@ -40,7 +32,7 @@ upload.post("/", async (c) => {
     const buffer = await file.arrayBuffer();
     const bufferData = Buffer.from(buffer);
 
-    const uploadResult = await processUpload(bufferData, file.type, file.name);
+    const uploadResult = await processUpload(bufferData, file.type, file.name, relatedType);
 
     if (!uploadResult.success) {
       return c.json({ error: uploadResult.error }, 400);
@@ -109,6 +101,11 @@ upload.get("/user/:userId", async (c) => {
 // GET /upload/:id
 upload.get("/:id", async (c) => {
   try {
+    const user = c.get("user");
+    if (!user) {
+      return c.json({ error: "User tidak ditemukan dalam context" }, 401);
+    }
+
     const id = Number(c.req.param("id"));
 
     const file = await db
@@ -120,7 +117,13 @@ upload.get("/:id", async (c) => {
       return c.json({ error: "File tidak ditemukan" }, 404);
     }
 
-    return c.json({ message: "Data file berhasil diambil", data: file[0] });
+    // ✅ FIX 2: Authorization check - user hanya bisa akses file mereka atau admin
+    const fileData = file[0];
+    if (fileData.userId !== user.id && user.role !== "admin") {
+      return c.json({ error: "Anda tidak berhak mengakses file ini" }, 403);
+    }
+
+    return c.json({ message: "Data file berhasil diambil", data: fileData });
   } catch (error) {
     console.error("Error fetching file:", error);
     return c.json({ error: "Terjadi kesalahan" }, 500);

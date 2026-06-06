@@ -5,6 +5,7 @@ import { users } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { authMiddleware } from "../middleware/authMiddleware";
 import bcrypt from "bcryptjs";
+import { processUpload, deleteFile } from "../utils/fileHandler";
 
 const settings = new Hono<{ Variables: Variables }>();
 
@@ -30,70 +31,151 @@ settings.get("/profile", async (c) => {
     data: profile[0],
   });
 });
-
-// PUT Update Profile (DEF-03 FIXED)
+// PUT Update Profile dengan file upload handling
 settings.put("/profile", async (c) => {
-  const user = c.get("user");
-  const body = await c.req.json();
+  try {
+    const user = c.get("user");
 
-  // === DEF-03 FIX: Cegah privilege escalation ===
-  // Hapus field role dari update agar user tidak bisa ubah role sendiri
-  const { role, ...safeBody } = body;
+    // ✅ Try parse as formData dengan fallback
+    let formData: FormData;
+    try {
+      formData = await c.req.formData();
+      console.log("✅ FormData parsed successfully");
+    } catch (parseError) {
+      console.error("❌ FormData parse error:", parseError);
+      console.log("🔍 Content-Type:", c.req.header("content-type"));
+      console.log("🔍 Body size:", c.req.raw.body?.length || "unknown");
+      return c.json(
+        {
+          error:
+            "Format data tidak valid. Pastikan mengirim FormData dengan multipart/form-data",
+          details: String(parseError),
+        },
+        400,
+      );
+    }
 
-  const updated = await db
-    .update(users)
-    .set({
-      name: safeBody.name ?? undefined,
-      email: safeBody.email ?? undefined,
-      profile_photo: safeBody.photo ?? safeBody.profile_photo ?? undefined,
-      // role TIDAK boleh diubah melalui endpoint ini
-    })
-    .where(eq(users.id, user.id))
-    .returning();
+    console.log("🔍 DEBUG - FormData keys:", Array.from(formData.keys()));
 
-  if (!updated[0]) {
-    return c.json({ message: "Gagal mengupdate profile" }, 400);
+    const updateData: any = {};
+
+    // Get text fields
+    const name = formData.get("name");
+    const email = formData.get("email");
+
+    if (name && typeof name === "string") {
+      updateData.name = name;
+      console.log("✅ Name:", name);
+    }
+    if (email && typeof email === "string") {
+      updateData.email = email;
+      console.log("✅ Email:", email);
+    }
+
+    // Get file
+    const profileFile = formData.get("profile_photo");
+
+    console.log("🔍 Profile file:", profileFile);
+    console.log("🔍 Has arrayBuffer?", typeof (profileFile as any)?.arrayBuffer);
+
+    // ✅ ROBUST FILE HANDLING - support Node.js FormData
+    if (profileFile && typeof (profileFile as any).arrayBuffer === "function") {
+      try {
+        const buffer = await (profileFile as any).arrayBuffer();
+        const bufferData = Buffer.from(buffer);
+
+        console.log("✅ File received, buffer size:", bufferData.length);
+        console.log("✅ File name:", (profileFile as any).name);
+        console.log("✅ File type:", (profileFile as any).type);
+
+        const uploadResult = await processUpload(
+          bufferData,
+          (profileFile as any).type || "application/octet-stream",
+          (profileFile as any).name || "photo.jpg",
+          "profile"
+        );
+
+        console.log("📤 Upload result:", uploadResult);
+
+        // FIX [PATH_VALIDATION]: Verify path format sebelum save ke DB
+        if (uploadResult.filePath) {
+          console.log("✅ ==== UPLOAD RESULT ====");
+          console.log("🔍 fileName:", uploadResult.fileName);
+          console.log("🔍 filePath:", uploadResult.filePath);
+          console.log("🔍 fileSize:", uploadResult.fileSize);
+          console.log("🔍 STARTS WITH /uploads?", uploadResult.filePath.startsWith("/uploads"));
+          console.log("🔍 CONTAINS public/?", uploadResult.filePath.includes("public/"));
+          
+          if (!uploadResult.filePath.startsWith("/uploads")) {
+            console.error("❌ CRITICAL: Path format wrong! Should start with /uploads, got:", uploadResult.filePath);
+            return c.json({ error: "Invalid file path format" }, 500);
+          }
+        }
+
+        if (!uploadResult.success) {
+          return c.json({ error: uploadResult.error }, 400);
+        }
+
+        // Hapus file lama
+        const currentUser = await db
+          .select()
+          .from(users)
+          .where(eq(users.id, user.id));
+
+        if (currentUser[0]?.profile_photo) {
+          const oldFileName = currentUser[0].profile_photo.split("/").pop();
+          if (oldFileName) await deleteFile(oldFileName);
+        }
+
+        updateData.profile_photo = uploadResult.filePath;
+      } catch (fileError) {
+        console.error("❌ File processing error:", fileError);
+        return c.json({ error: "Gagal memproses file: " + String(fileError) }, 400);
+      }
+    } else {
+      console.warn("⚠️ No file received or invalid file object");
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return c.json({ message: "Tidak ada data yang diupdate" }, 400);
+    }
+
+    // FIX [DRIZZLE_RETURNING]: Don't rely on .returning() - explicitly SELECT after UPDATE
+    // SQLite + Drizzle .returning() might not include all fields
+    const updateResult = await db
+      .update(users)
+      .set(updateData)
+      .where(eq(users.id, user.id));
+
+    // After update, explicitly fetch the complete user record
+    const fetchedUser = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        profile_photo: users.profile_photo,
+        role: users.role,
+      })
+      .from(users)
+      .where(eq(users.id, user.id));
+
+    if (!fetchedUser || fetchedUser.length === 0) {
+      return c.json({ message: "Gagal mengupdate profile" }, 400);
+    }
+
+    // FIX [RESPONSE_VALIDATION]: Log exact response untuk debug path issue
+    const responseData = fetchedUser[0];
+    console.log("🔍 RESPONSE PAYLOAD - profile_photo field:", responseData.profile_photo);
+    console.log("🔍 RESPONSE PAYLOAD - all fields:", Object.keys(responseData));
+    console.log("🔍 RESPONSE PAYLOAD - full object:", JSON.stringify(responseData, null, 2));
+
+    return c.json({
+      message: "Profile berhasil diupdate",
+      data: responseData,
+    });
+  } catch (error) {
+    console.error("❌ Profile update error:", error);
+    return c.json({ error: "Terjadi kesalahan: " + String(error) }, 500);
   }
-
-  return c.json({
-    message: "Profile berhasil diupdate",
-    data: updated[0],
-  });
 });
-
-// PUT Update Profile (DEF-03 FIXED + Error 500 Solved)
-settings.put("/profile", async (c) => {
-  const user = c.get("user");
-  const body = await c.req.json();
-
-  // === DEF-03 FIX: Cegah privilege escalation ===
-  const updateData: any = {};
-
-  if (body.name !== undefined) updateData.name = body.name;
-  if (body.email !== undefined) updateData.email = body.email;
-  if (body.photo !== undefined || body.profile_photo !== undefined) {
-    updateData.profile_photo = body.photo ?? body.profile_photo;
-  }
-  // role sengaja TIDAK diikutkan
-
-  if (Object.keys(updateData).length === 0) {
-    return c.json({ message: "Tidak ada data yang diupdate" }, 400);
-  }
-
-  const updated = await db
-    .update(users)
-    .set(updateData)
-    .where(eq(users.id, user.id))
-    .returning();
-
-  if (!updated || updated.length === 0) {
-    return c.json({ message: "Gagal mengupdate profile" }, 400);
-  }
-
-  return c.json({
-    message: "Profile berhasil diupdate",
-    data: updated[0],
-  });
-});
-
 export default settings;

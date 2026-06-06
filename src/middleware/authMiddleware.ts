@@ -2,7 +2,12 @@ import { createMiddleware } from "hono/factory";
 import { verify } from "hono/jwt";
 import type { Variables } from "../types/hono-env";
 
-const JWT_SECRET = process.env.JWT_SECRET ?? "secret";
+const JWT_SECRET = process.env.JWT_SECRET;
+
+// ✅ FIX 1: Validasi JWT_SECRET ada (security)
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET tidak ditemukan di environment variables. Set JWT_SECRET di .env");
+}
 
 export const authMiddleware = createMiddleware <{ Variables: Variables }>(async (c, next) => {
   const authHeader = c.req.header("Authorization");

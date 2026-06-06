@@ -61,8 +61,8 @@ export const projects = sqliteTable("projects", {
 // Pivot Table (Many-to-Many Creator <-> Project)
 export const projectCreators = sqliteTable("project_creators", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  projectId: integer("project_id").references(() => projects.id),
-  creatorId: integer("creator_id").references(() => creators.id),
+  projectId: integer("project_id").references(() => projects.id, { onDelete: "cascade" }),
+  creatorId: integer("creator_id").references(() => creators.id, { onDelete: "cascade" }),
   assignedAt: text("assigned_at").default(sql`CURRENT_TIMESTAMP`),
   // Bisa tambah kolom role/fee dll nanti
 });
@@ -90,7 +90,7 @@ export const schedules = sqliteTable("schedules", {
 export const invoices = sqliteTable("invoices", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   projectId: integer("project_id").references(() => projects.id, { onDelete: "cascade" }),
-  clientId: integer("client_id").references(() => clients.id),
+  clientId: integer("client_id").references(() => clients.id, { onDelete: "cascade" }),
   invoiceNumber: text("invoice_number").notNull().unique(),
   amount: integer("amount").notNull(),           // dalam Rupiah
   description: text("description"),
@@ -108,7 +108,7 @@ export const ratings = sqliteTable("ratings", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   projectId: integer("project_id").references(() => projects.id, { onDelete: "cascade" }),
   creatorId: integer("creator_id").references(() => creators.id, { onDelete: "cascade" }),
-  clientId: integer("client_id").references(() => clients.id),
+  clientId: integer("client_id").references(() => clients.id, { onDelete: "cascade" }),
   rating: integer("rating").notNull(),           // 1 sampai 5
   reviewText: text("review_text"),
   createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
