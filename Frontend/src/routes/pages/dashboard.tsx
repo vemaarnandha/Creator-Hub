@@ -3,8 +3,6 @@ import { useState, useEffect } from 'react'
 import {
   BarChart,
   Bar,
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -48,40 +46,38 @@ function DashboardComponent() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    fetchDashboardData()
-    fetchRecentProjects()
+    async function fetchAllDashboardData() {
+      try {
+        setIsLoading(true)
+        setError('')
+        
+        // Menggunakan Promise.all agar request berjalan paralel
+        const [dashboardRes, recentRes] = await Promise.all([
+          apiGet<{ message: string; data: DashboardData }>(API_ENDPOINTS.dashboard),
+          apiGet<{ message: string; data: RecentProject[] }>(`${API_ENDPOINTS.dashboard}/recent`)
+        ])
+
+        setDashboardData(dashboardRes.data)
+        setRecentProjects(recentRes.data || [])
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Gagal memuat data dashboard'
+        setError(message)
+        console.error('Error fetching dashboard data:', err)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchAllDashboardData()
   }, [])
-
-  async function fetchDashboardData() {
-    try {
-      setIsLoading(true)
-      setError('')
-      const data = await apiGet<{ message: string; data: DashboardData }>(API_ENDPOINTS.dashboard)
-      setDashboardData(data.data)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Gagal memuat data dashboard'
-      setError(message)
-      console.error('Error fetching dashboard:', err)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  async function fetchRecentProjects() {
-    try {
-      const data = await apiGet<{ message: string; data: RecentProject[] }>(
-        `${API_ENDPOINTS.dashboard}/recent`
-      )
-      setRecentProjects(data.data || [])
-    } catch (err) {
-      console.error('Error fetching recent projects:', err)
-    }
-  }
 
   if (isLoading) {
     return (
-      <div className="p-6 flex items-center justify-center">
-        <p className="text-gray-500">Memuat data dashboard...</p>
+      <div className="p-6 flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-2">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600"></div>
+          <p className="text-gray-500 text-sm">Memuat data dashboard...</p>
+        </div>
       </div>
     )
   }
@@ -89,8 +85,14 @@ function DashboardComponent() {
   if (error) {
     return (
       <div className="p-6">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-700">{error}</p>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center justify-between">
+          <p className="text-red-700 text-sm">{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="text-sm bg-red-600 text-white px-3 py-1 rounded-md hover:bg-red-700 dynamic"
+          >
+            Muat Ulang
+          </button>
         </div>
       </div>
     )
@@ -105,9 +107,9 @@ function DashboardComponent() {
 
   return (
     <div className="p-6 space-y-6">
-
       <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
 
+      {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((item) => (
           <div
@@ -120,14 +122,15 @@ function DashboardComponent() {
         ))}
       </div>
 
+      {/* Charts & Breakdown Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-
+        {/* Bar Chart */}
         <div className="bg-white rounded-lg shadow p-5">
           <h2 className="text-base font-semibold text-gray-700 mb-4">Project per Status</h2>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={dashboardData?.projectsByStatus || []}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="status" tick={{ fontSize: 12 }} />
+              <XAxis dataKey="status" tick={{ fontSize: 12 }} className="capitalize" />
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip />
               <Bar dataKey="total" name="Total" fill="#3b82f6" radius={[4, 4, 0, 0]} />
@@ -135,10 +138,12 @@ function DashboardComponent() {
           </ResponsiveContainer>
         </div>
 
+        {/* Status Breakdown */}
         <div className="bg-white rounded-lg shadow p-5">
           <h2 className="text-base font-semibold text-gray-700 mb-4">Status Breakdown</h2>
           <div className="space-y-3">
-            {dashboardData?.projectsByStatus.map((item) => (
+            {/* Diperbaiki dengan optional chaining aman (?.) */}
+            {dashboardData?.projectsByStatus?.map((item) => (
               <div key={item.status} className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full" style={{
@@ -151,60 +156,64 @@ function DashboardComponent() {
                 <span className="font-semibold text-gray-800">{item.total}</span>
               </div>
             ))}
+            {(!dashboardData?.projectsByStatus || dashboardData.projectsByStatus.length === 0) && (
+              <p className="text-sm text-gray-500 text-center py-4">Tidak ada data status</p>
+            )}
           </div>
         </div>
-
       </div>
 
+      {/* Recent Projects Table */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100">
           <h2 className="text-base font-semibold text-gray-700">Recent Projects</h2>
         </div>
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-5 py-3 text-left text-gray-600 font-medium">Project</th>
-              <th className="px-5 py-3 text-left text-gray-600 font-medium">Client</th>
-              <th className="px-5 py-3 text-left text-gray-600 font-medium">Status</th>
-              <th className="px-5 py-3 text-left text-gray-600 font-medium">Date</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {recentProjects.length > 0 ? (
-              recentProjects.map((project) => (
-                <tr key={project.id} className="hover:bg-gray-50">
-                  <td className="px-5 py-3 text-gray-800">{project.projectName || project.title}</td>
-                  <td className="px-5 py-3 text-gray-500">{project.clientName || '-'}</td>
-                  <td className="px-5 py-3">
-                    <span className={`px-2 py-0.5 rounded-full text-xs capitalize ${
-                      project.status === 'completed' ? 'bg-green-100 text-green-700' :
-                      project.status === 'ongoing' ? 'bg-yellow-100 text-yellow-700' :
-                      project.status === 'planning' ? 'bg-blue-100 text-blue-700' :
-                      'bg-gray-100 text-gray-700'
-                    }`}>
-                      {project.status}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 text-gray-500">
-                    {new Date(project.createdAt).toLocaleDateString('id-ID', {
-                      day: '2-digit',
-                      month: 'short',
-                      year: 'numeric'
-                    })}
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-100">
+              <tr>
+                <th className="px-5 py-3 text-left text-gray-600 font-medium">Project</th>
+                <th className="px-5 py-3 text-left text-gray-600 font-medium">Client</th>
+                <th className="px-5 py-3 text-left text-gray-600 font-medium">Status</th>
+                <th className="px-5 py-3 text-left text-gray-600 font-medium">Date</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {recentProjects.length > 0 ? (
+                recentProjects.map((project) => (
+                  <tr key={project.id} className="hover:bg-gray-50">
+                    <td className="px-5 py-3 text-gray-800 font-medium">{project.projectName || project.title}</td>
+                    <td className="px-5 py-3 text-gray-500">{project.clientName || '-'}</td>
+                    <td className="px-5 py-3">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${
+                        project.status === 'completed' ? 'bg-green-100 text-green-700' :
+                        project.status === 'ongoing' ? 'bg-yellow-100 text-yellow-700' :
+                        project.status === 'planning' ? 'bg-blue-100 text-blue-700' :
+                        'bg-gray-100 text-gray-700'
+                      }`}>
+                        {project.status}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-gray-500">
+                      {project.createdAt ? new Date(project.createdAt).toLocaleDateString('id-ID', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric'
+                      }) : '-'}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={4} className="px-5 py-8 text-center text-gray-500">
+                    Belum ada project saat ini.
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={4} className="px-5 py-3 text-center text-gray-500">
-                  No projects yet
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
-
     </div>
- )
+  )
 }

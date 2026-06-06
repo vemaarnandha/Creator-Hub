@@ -10,8 +10,10 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PagesSettingsRouteImport } from './routes/pages/settings'
+import { Route as PagesSearchRouteImport } from './routes/pages/search'
 import { Route as PagesScheduleRouteImport } from './routes/pages/schedule'
 import { Route as PagesReviewRouteImport } from './routes/pages/review'
+import { Route as PagesNotifcationRouteImport } from './routes/pages/notifcation'
 import { Route as PagesLoginRouteImport } from './routes/pages/login'
 import { Route as PagesInvoiceRouteImport } from './routes/pages/invoice'
 import { Route as PagesDashboardRouteImport } from './routes/pages/dashboard'
@@ -24,6 +26,11 @@ const PagesSettingsRoute = PagesSettingsRouteImport.update({
   path: '/pages/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PagesSearchRoute = PagesSearchRouteImport.update({
+  id: '/pages/search',
+  path: '/pages/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PagesScheduleRoute = PagesScheduleRouteImport.update({
   id: '/pages/schedule',
   path: '/pages/schedule',
@@ -32,6 +39,11 @@ const PagesScheduleRoute = PagesScheduleRouteImport.update({
 const PagesReviewRoute = PagesReviewRouteImport.update({
   id: '/pages/review',
   path: '/pages/review',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PagesNotifcationRoute = PagesNotifcationRouteImport.update({
+  id: '/pages/notifcation',
+  path: '/pages/notifcation',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PagesLoginRoute = PagesLoginRouteImport.update({
@@ -72,8 +84,10 @@ export interface FileRoutesByFullPath {
   '/pages/dashboard': typeof PagesDashboardRoute
   '/pages/invoice': typeof PagesInvoiceRoute
   '/pages/login': typeof PagesLoginRoute
+  '/pages/notifcation': typeof PagesNotifcationRoute
   '/pages/review': typeof PagesReviewRoute
   '/pages/schedule': typeof PagesScheduleRoute
+  '/pages/search': typeof PagesSearchRoute
   '/pages/settings': typeof PagesSettingsRoute
 }
 export interface FileRoutesByTo {
@@ -83,8 +97,10 @@ export interface FileRoutesByTo {
   '/pages/dashboard': typeof PagesDashboardRoute
   '/pages/invoice': typeof PagesInvoiceRoute
   '/pages/login': typeof PagesLoginRoute
+  '/pages/notifcation': typeof PagesNotifcationRoute
   '/pages/review': typeof PagesReviewRoute
   '/pages/schedule': typeof PagesScheduleRoute
+  '/pages/search': typeof PagesSearchRoute
   '/pages/settings': typeof PagesSettingsRoute
 }
 export interface FileRoutesById {
@@ -95,8 +111,10 @@ export interface FileRoutesById {
   '/pages/dashboard': typeof PagesDashboardRoute
   '/pages/invoice': typeof PagesInvoiceRoute
   '/pages/login': typeof PagesLoginRoute
+  '/pages/notifcation': typeof PagesNotifcationRoute
   '/pages/review': typeof PagesReviewRoute
   '/pages/schedule': typeof PagesScheduleRoute
+  '/pages/search': typeof PagesSearchRoute
   '/pages/settings': typeof PagesSettingsRoute
 }
 export interface FileRouteTypes {
@@ -108,8 +126,10 @@ export interface FileRouteTypes {
     | '/pages/dashboard'
     | '/pages/invoice'
     | '/pages/login'
+    | '/pages/notifcation'
     | '/pages/review'
     | '/pages/schedule'
+    | '/pages/search'
     | '/pages/settings'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -119,8 +139,10 @@ export interface FileRouteTypes {
     | '/pages/dashboard'
     | '/pages/invoice'
     | '/pages/login'
+    | '/pages/notifcation'
     | '/pages/review'
     | '/pages/schedule'
+    | '/pages/search'
     | '/pages/settings'
   id:
     | '__root__'
@@ -130,8 +152,10 @@ export interface FileRouteTypes {
     | '/pages/dashboard'
     | '/pages/invoice'
     | '/pages/login'
+    | '/pages/notifcation'
     | '/pages/review'
     | '/pages/schedule'
+    | '/pages/search'
     | '/pages/settings'
   fileRoutesById: FileRoutesById
 }
@@ -142,8 +166,10 @@ export interface RootRouteChildren {
   PagesDashboardRoute: typeof PagesDashboardRoute
   PagesInvoiceRoute: typeof PagesInvoiceRoute
   PagesLoginRoute: typeof PagesLoginRoute
+  PagesNotifcationRoute: typeof PagesNotifcationRoute
   PagesReviewRoute: typeof PagesReviewRoute
   PagesScheduleRoute: typeof PagesScheduleRoute
+  PagesSearchRoute: typeof PagesSearchRoute
   PagesSettingsRoute: typeof PagesSettingsRoute
 }
 
@@ -154,6 +180,13 @@ declare module '@tanstack/react-router' {
       path: '/pages/settings'
       fullPath: '/pages/settings'
       preLoaderRoute: typeof PagesSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pages/search': {
+      id: '/pages/search'
+      path: '/pages/search'
+      fullPath: '/pages/search'
+      preLoaderRoute: typeof PagesSearchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pages/schedule': {
@@ -168,6 +201,13 @@ declare module '@tanstack/react-router' {
       path: '/pages/review'
       fullPath: '/pages/review'
       preLoaderRoute: typeof PagesReviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pages/notifcation': {
+      id: '/pages/notifcation'
+      path: '/pages/notifcation'
+      fullPath: '/pages/notifcation'
+      preLoaderRoute: typeof PagesNotifcationRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pages/login': {
@@ -222,8 +262,10 @@ const rootRouteChildren: RootRouteChildren = {
   PagesDashboardRoute: PagesDashboardRoute,
   PagesInvoiceRoute: PagesInvoiceRoute,
   PagesLoginRoute: PagesLoginRoute,
+  PagesNotifcationRoute: PagesNotifcationRoute,
   PagesReviewRoute: PagesReviewRoute,
   PagesScheduleRoute: PagesScheduleRoute,
+  PagesSearchRoute: PagesSearchRoute,
   PagesSettingsRoute: PagesSettingsRoute,
 }
 export const routeTree = rootRouteImport

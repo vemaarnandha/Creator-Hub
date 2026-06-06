@@ -31,9 +31,36 @@ export const API_ENDPOINTS = {
   // Schedules/Posts
   schedules: `${API_BASE_URL}/schedule`,
 
+  // Notifications
+  notifications: `${API_BASE_URL}/notifications`,
+
+  // Search
+  search: `${API_BASE_URL}/search`,
+
   // Settings
   settings: `${API_BASE_URL}/settings`,
+
+  // Upload
+  upload: `${API_BASE_URL}/upload`,
 }
+
+// FIX [IMAGE_URL]: Helper to convert relative image path to full backend URL
+export const getImageUrl = (imagePath: string | null | undefined): string => {
+  if (!imagePath) return '';
+  
+  // If already full URL, return as-is
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath;
+  }
+  
+  // If relative path like /uploads/..., prepend backend URL
+  if (imagePath.startsWith('/')) {
+    return `${API_BASE_URL}${imagePath}`;
+  }
+  
+  // If relative without /, prepend backend URL + /
+  return `${API_BASE_URL}/${imagePath}`;
+};
 
 export async function apiCall(
   url: string,

@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import React from 'react'
-import { apiCall, API_ENDPOINTS } from '../../lib/api'
+import { apiCall, API_ENDPOINTS, getImageUrl } from '../../lib/api'
 import { useToast } from '../../components/ToastContext'
 
 export const Route = createFileRoute('/pages/creator')({
@@ -11,27 +11,38 @@ type Creator = {
   id: number
   name: string
   niche: string
-  followers: number
+  followers: string // Diubah ke string karena placeholder menerima format "100K"
   platform: 'instagram' | 'tiktok' | 'youtube' | 'twitter'
   status: 'active' | 'inactive'
   photo: string
   createdAt: string
 }
 
+// Diubah agar tidak bentrok dengan global FormData bawaan browser
+type CreatorFormData = {
+  name: string
+  niche: string
+  followers: string
+  platform: Creator['platform']
+  status: Creator['status']
+  photo: string
+  isPhotoUploading?: boolean
+}
 
-const emptyForm = {
+const emptyForm: CreatorFormData = {
   name: '',
   niche: '',
-  followers: 0,
-  platform: '' as Creator['platform'],
-  status: 'active' as Creator['status'],
+  followers: '',
+  platform: 'instagram', // Default disamakan dengan option pertama agar tidak kosong
+  status: 'active',
   photo: '',
+  isPhotoUploading: false,
 }
 
 function RouteComponent() {
   const [creators, setCreators] = React.useState<Creator[]>([])
   const [showForm, setShowForm] = React.useState(false)
-  const [form, setForm] = React.useState(emptyForm)
+  const [form, setForm] = React.useState<CreatorFormData>(emptyForm)
   const [editId, setEditId] = React.useState<number | null>(null)
   const [deleteId, setDeleteId] = React.useState<number | null>(null)
   const [previewPhoto, setPreviewPhoto] = React.useState<string>('')
@@ -65,16 +76,69 @@ function RouteComponent() {
     setForm({ ...form, [e.target.name]: e.target.value })
   }
 
-  function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    const url = URL.createObjectURL(file)
-    setPreviewPhoto(url)
-    setForm({ ...form, photo: url })
+
+    // Validasi ukuran file
+    const MAX_SIZE = 2 * 1024 * 1024 // 2MB
+    if (file.size > MAX_SIZE) {
+      addToast('Ukuran foto terlalu besar. Maksimal 2MB', 'error')
+      return
+    }
+
+    // Validasi tipe file
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
+      addToast('Tipe file tidak didukung. Gunakan JPG, PNG, WebP, atau GIF', 'error')
+      return
+    }
+
+    // Set preview untuk UX yang lebih baik
+    const previewUrl = URL.createObjectURL(file)
+    setPreviewPhoto(previewUrl)
+
+    // Upload file ke server
+    setForm({ ...form, isPhotoUploading: true })
+    try {
+      const formDataObj = new FormData() // Menggunakan browser FormData tanpa bentrok nama tipe
+      formDataObj.append('file', file)
+      formDataObj.append('relatedType', 'creator')
+
+      const token = localStorage.getItem('token')
+      if (!token) {
+        addToast('Token tidak ditemukan. Silakan login terlebih dahulu', 'error')
+        setForm({ ...form, isPhotoUploading: false })
+        return
+      }
+
+      const response = await fetch(API_ENDPOINTS.upload, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formDataObj,
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Upload gagal')
+      }
+
+      const data = await response.json()
+      const filePath = data.data?.filePath || `${data.data?.fileName}`
+      setForm({ ...form, photo: filePath, isPhotoUploading: false })
+      addToast('Foto berhasil diupload', 'success')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Gagal upload foto'
+      addToast(message, 'error')
+      setPreviewPhoto('')
+      setForm({ ...form, photo: '', isPhotoUploading: false })
+      console.error('Upload error:', err)
+    }
   }
 
   function openAdd() {
-    setForm(emptyForm)
+    setForm({ ...emptyForm, isPhotoUploading: false })
     setPreviewPhoto('')
     setEditId(null)
     setShowForm(true)
@@ -88,8 +152,9 @@ function RouteComponent() {
       platform: creator.platform,
       status: creator.status,
       photo: creator.photo,
+      isPhotoUploading: false,
     })
-    setPreviewPhoto(creator.photo)
+    setPreviewPhoto(getImageUrl(creator.photo))
     setEditId(creator.id)
     setShowForm(true)
   }
@@ -98,10 +163,19 @@ function RouteComponent() {
     if (!form.name || !form.niche) return
     setIsSaving(true)
     try {
+      const dataToSave = {
+        name: form.name,
+        niche: form.niche,
+        followers: form.followers,
+        platform: form.platform,
+        status: form.status,
+        photo: form.photo,
+      }
+
       if (editId !== null) {
         const res = await apiCall(`${API_ENDPOINTS.creators}/${editId}`, {
           method: 'PUT',
-          body: JSON.stringify(form),
+          body: JSON.stringify(dataToSave),
         })
         if (!res.ok) throw new Error('Gagal update')
         const data = await res.json()
@@ -111,7 +185,7 @@ function RouteComponent() {
       } else {
         const res = await apiCall(API_ENDPOINTS.creators, {
           method: 'POST',
-          body: JSON.stringify(form),
+          body: JSON.stringify(dataToSave),
         })
         if (!res.ok) throw new Error('Gagal tambah')
         const data = await res.json()
@@ -120,7 +194,7 @@ function RouteComponent() {
         addToast('Creator berhasil ditambahkan', 'success')
       }
       setShowForm(false)
-      setForm(emptyForm)
+      setForm({ ...emptyForm, isPhotoUploading: false })
       setPreviewPhoto('')
       setEditId(null)
     } catch (err) {
@@ -155,7 +229,6 @@ function RouteComponent() {
 
   return (
     <div className="p-6 space-y-6">
-
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-800">Creator</h1>
         <button
@@ -195,9 +268,12 @@ function RouteComponent() {
                 <td className="px-5 py-3">
                   {creator.photo ? (
                     <img
-                      src={creator.photo}
+                      src={getImageUrl(creator.photo)}
                       alt={creator.name}
                       className="w-9 h-9 rounded-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none'
+                      }}
                     />
                   ) : (
                     <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-semibold text-sm">
@@ -208,7 +284,7 @@ function RouteComponent() {
                 <td className="px-5 py-3 text-gray-800 font-medium">{creator.name}</td>
                 <td className="px-5 py-3 text-gray-500">{creator.niche}</td>
                 <td className="px-5 py-3 text-gray-500">{creator.followers}</td>
-                <td className="px-5 py-3 text-gray-500">{creator.platform}</td>
+                <td className="px-5 py-3 text-gray-500 capitalize">{creator.platform}</td>
                 <td className="px-5 py-3">
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${creator.status === 'active'
                     ? 'bg-green-100 text-green-700'
@@ -247,27 +323,47 @@ function RouteComponent() {
             </h2>
 
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-gray-300 overflow-hidden flex items-center justify-center">
+              <div className="w-16 h-16 rounded-full bg-gray-300 overflow-hidden flex items-center justify-center relative">
                 {previewPhoto ? (
-                  <img src={previewPhoto} alt="preview" className="w-full h-full object-cover" />
+                  <>
+                    <img 
+                      src={previewPhoto} 
+                      alt="preview" 
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none'
+                      }}
+                    />
+                    {form.isPhotoUploading && (
+                      <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-white"></div>
+                      </div>
+                    )}
+                  </>
                 ) : (
-                  <span className="text-gray-4100 text-xs">Foto</span>
+                  <span className="text-gray-400 text-xs">Foto</span>
                 )}
               </div>
-              <div>
-                <label className="text-xs text-blue-600 cursor-pointer border border-blue-300 px-3 py-1.5 rounded-md hover:bg-blue-50">
-                  Upload Foto
-                  <input type="file" accept="image/*" className="hidden" onChange={handlePhoto} />
+              <div className="flex-1">
+                <label className="text-xs text-blue-600 cursor-pointer border border-blue-300 px-3 py-1.5 rounded-md hover:bg-blue-50 inline-block">
+                  {form.isPhotoUploading ? 'Upload...' : 'Upload Foto'}
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={handlePhoto}
+                    disabled={form.isPhotoUploading}
+                  />
                 </label>
+                <p className="text-xs text-gray-400 mt-1">JPG, PNG maks 2MB</p>
               </div>
-              <p className="text-xs text-gray-400 mt-1">JPG, PNG maks 2MB</p>
             </div>
 
             <div className="space-y-3">
               <div>
                 <label className="text-xs text-black font-bold mb-1 block">Nama *</label>
                 <input
-                  type="string"
+                  type="text" // Diperbaiki dari "string" ke "text"
                   name="name"
                   value={form.name}
                   onChange={handleChange}
@@ -278,6 +374,7 @@ function RouteComponent() {
               <div>
                 <label className="text-xs text-black font-bold mb-1 block">Niche *</label>
                 <input
+                  type="text"
                   name="niche"
                   value={form.niche}
                   onChange={handleChange}
@@ -288,6 +385,7 @@ function RouteComponent() {
               <div>
                 <label className="text-xs text-black font-bold mb-1 block">Followers</label>
                 <input
+                  type="text"
                   name="followers"
                   value={form.followers}
                   onChange={handleChange}
@@ -326,16 +424,17 @@ function RouteComponent() {
             <div className="flex justify-end gap-2 pt-2">
               <button
                 onClick={() => setShowForm(false)}
-                className="text-sm px-4 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
+                disabled={isSaving || form.isPhotoUploading}
+                className="text-sm px-4 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
               >
                 Batal
               </button>
               <button
                 onClick={handleSave}
-                disabled={isSaving}
+                disabled={isSaving || form.isPhotoUploading}
                 className="text-sm px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-400"
               >
-                {isSaving ? 'Menyimpan...' : editId ? 'Simpan Perubahan' : 'Tambah'}
+                {isSaving ? 'Menyimpan...' : form.isPhotoUploading ? 'Upload foto...' : editId ? 'Simpan Perubahan' : 'Tambah'}
               </button>
             </div>
           </div>
@@ -370,7 +469,6 @@ function RouteComponent() {
           </div>
         </div>
       )}
-
     </div>
   )
 }
